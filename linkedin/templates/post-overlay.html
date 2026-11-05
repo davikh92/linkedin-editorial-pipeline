@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-deep:#0D1432;
+    --navy:#1A2456;
+    --accent:#9E8F67;
+    --creme:#EDE8DC;
+    --branco:#FFFFFF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1200px;height:1200px;overflow:hidden;}
+
+  .canvas{
+    position:relative;
+    width:1200px;height:1200px;
+    background-color:var(--navy-deep);
+    background-image:var(--bg-image);
+    background-size:cover;
+    background-position:center;
+    font-family:'Inter',sans-serif;
+  }
+
+  /* Escurece a foto para o texto ficar sempre legivel.
+     Gradiente mais forte embaixo, onde fica o conteudo. */
+  .scrim{
+    position:absolute;inset:0;
+    background:linear-gradient(180deg,
+      rgba(13,20,50,.55) 0%,
+      rgba(13,20,50,.35) 32%,
+      rgba(13,20,50,.88) 72%,
+      rgba(13,20,50,.97) 100%);
+  }
+  /* Vinheta — da profundidade e puxa o olho para o centro */
+  .vignette{
+    position:absolute;inset:0;
+    background:radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0) 45%, rgba(0,0,0,.45) 100%);
+  }
+
+  .content{position:absolute;left:96px;right:96px;bottom:104px;}
+
+  .kicker{
+    display:inline-block;
+    font-size:26px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:26px;padding-bottom:12px;
+    border-bottom:2px solid rgba(158,143,103,.55);
+  }
+
+  .headline{
+    font-family:'Playfair Display',serif;font-weight:700;
+    color:var(--branco);line-height:1.08;letter-spacing:-.01em;
+    text-shadow:0 2px 24px rgba(0,0,0,.5);
+  }
+  .h-xl{font-size:104px;}
+  .h-lg{font-size:82px;}
+  .h-md{font-size:66px;}
+  .h-sm{font-size:54px;}
+
+  .bignum{
+    font-family:'Playfair Display',serif;font-weight:700;
+    font-size:210px;line-height:.92;color:var(--accent);
+    text-shadow:0 4px 32px rgba(0,0,0,.55);margin-bottom:8px;
+  }
+
+  .subtext{
+    margin-top:26px;font-size:34px;font-weight:400;line-height:1.42;
+    color:var(--creme);max-width:900px;
+    text-shadow:0 1px 12px rgba(0,0,0,.45);
+  }
+
+  .steps{margin-top:30px;display:flex;flex-direction:column;gap:16px;}
+  .step{
+    display:flex;align-items:flex-start;gap:20px;
+    background:rgba(237,232,220,.09);
+    border-left:4px solid var(--accent);
+    border-radius:0 10px 10px 0;
+    padding:16px 22px;
+  }
+  .step-n{
+    font-family:'Playfair Display',serif;font-weight:700;
+    font-size:34px;color:var(--accent);line-height:1.1;min-width:34px;
+  }
+  .step-t{font-size:29px;line-height:1.34;color:var(--creme);font-weight:400;}
+
+  .brand{
+    position:absolute;right:96px;bottom:52px;
+    display:flex;align-items:center;gap:12px;
+    font-size:24px;font-weight:500;color:rgba(237,232,220,.72);letter-spacing:.02em;
+  }
+  .brand-dot{width:12px;height:12px;border-radius:50%;background:var(--accent);}
+</style>
+</head>
+<body>
+  <div class="canvas" id="canvas">
+    <div class="scrim"></div>
+    <div class="vignette"></div>
+    <div class="content" id="content"></div>
+    <div class="brand"><span class="brand-dot"></span>Davi Hoffmann</div>
+  </div>
+
+<script>
+  // window.POST_DATA e injetado pelo Puppeteer antes do screenshot.
+  // {template, kicker, headline, subtext, numero, passos[], bgDataUri}
+  (function(){
+    const d = window.POST_DATA || {};
+    const c = document.getElementById('content');
+    const canvas = document.getElementById('canvas');
+
+    if (d.bgDataUri) canvas.style.setProperty('--bg-image', 'url("' + d.bgDataUri + '")');
+
+    const esc = s => String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    // tamanho da headline conforme comprimento — evita estourar o canvas
+    const sizeClass = t => {
+      const n = (t || '').length;
+      if (n <= 26) return 'h-xl';
+      if (n <= 48) return 'h-lg';
+      if (n <= 80) return 'h-md';
+      return 'h-sm';
+    };
+
+    let html = '';
+    if (d.kicker)   html += '<div class="kicker">' + esc(d.kicker) + '</div>';
+    if (d.numero)   html += '<div class="bignum">' + esc(d.numero) + '</div>';
+    if (d.headline) html += '<div class="headline ' + sizeClass(d.headline) + '">' + esc(d.headline) + '</div>';
+
+    if (Array.isArray(d.passos) && d.passos.length) {
+      html += '<div class="steps">';
+      d.passos.slice(0, 5).forEach(function(p, i){
+        html += '<div class="step"><span class="step-n">' + (i+1) + '</span>' +
+                '<span class="step-t">' + esc(p) + '</span></div>';
+      });
+      html += '</div>';
+    }
+    if (d.subtext) html += '<div class="subtext">' + esc(d.subtext) + '</div>';
+    c.innerHTML = html;
+
+    // Se o bloco passar da area util, reduz a headline um degrau ate caber.
+    const fit = function(){
+      const h = c.getBoundingClientRect().height;
+      const topo = 1200 - 104 - h;
+      if (topo < 120) {
+        const hl = c.querySelector('.headline');
+        if (hl) {
+          const ordem = ['h-xl','h-lg','h-md','h-sm'];
+          const atual = ordem.findIndex(k => hl.classList.contains(k));
+          if (atual > -1 && atual < ordem.length - 1) {
+            hl.classList.replace(ordem[atual], ordem[atual+1]);
+            return fit();
+          }
+        }
+      }
+    };
+    fit();
+    window.__READY__ = true;
+  })();
+</script>
+</body>
+</html>

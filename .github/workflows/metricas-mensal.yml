@@ -1,0 +1,59 @@
+name: Medicao Mensal
+
+# Coleta likes/comentarios de todos os posts do mes anterior e gera o relatorio
+# que orienta o ajuste do mix do mes seguinte.
+#
+# Mensal (nao semanal) por decisao do Davi: 4 posts por semana e ruido; ~17 no
+# mes ja permitem comparar tipo de conteudo, formato e tema.
+#
+# NAO falha quando nao ha dado — quem cobra acao e o health-check.yml semanal.
+# Este roda para produzir relatorio, que fica no log da execucao.
+
+on:
+  schedule:
+    # - cron:  # PAUSADO 05/10/2026 — revisao da abordagem '0 11 1 * *'   # dia 1 de cada mes, 8h BRT (11h UTC)
+  workflow_dispatch:
+    inputs:
+      mes:
+        description: 'Mes a analisar (YYYY-MM). Vazio = mes anterior.'
+        required: false
+
+permissions:
+  contents: write   # commita data/metricas.json
+
+jobs:
+  metricas:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependências
+        run: pip install -r linkedin/requirements.txt
+
+      - name: Coletar métricas e gerar relatório
+        env:
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_PERSON_URN:   ${{ secrets.LINKEDIN_PERSON_URN }}
+        working-directory: linkedin
+        run: |
+          if [ -n "${{ inputs.mes }}" ]; then
+            python main.py metricas --mes "${{ inputs.mes }}"
+          else
+            python main.py metricas
+          fi
+
+      - name: Salvar histórico de métricas
+        run: |
+          git config user.name  "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add linkedin/data/metricas.json
+          git diff --staged --quiet || git commit -m "data: metricas mensais $(date -u +%Y-%m)"
+          git push || true

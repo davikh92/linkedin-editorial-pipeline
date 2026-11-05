@@ -1,0 +1,73 @@
+name: Publicar Posts Agendados
+
+on:
+  schedule:
+    # 14:15 UTC = 11:15 BRT (horário de Brasília) — seg a sex
+    # - cron:  # PAUSADO 05/10/2026 — revisao da abordagem '15 14 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # necessário para commitar linkedin/data/posts.json
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependências
+        run: pip install -r linkedin/requirements.txt
+
+      - name: Configurar git (necessário para commit incremental do publish)
+        run: |
+          git config user.name  "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Publicar posts agendados
+        env:
+          GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY:     ${{ secrets.ANTHROPIC_API_KEY }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_PERSON_URN:   ${{ secrets.LINKEDIN_PERSON_URN }}
+        working-directory: linkedin
+        run: python main.py publish
+        # O publish faz commit+push IMEDIATO após cada post (idempotência).
+        # Se falhar, sai com código != 0 e este step falha → GitHub alerta por email.
+
+      - name: Salvar estado residual (fallback)
+        if: always()  # roda mesmo se o publish falhou, para salvar erros gravados
+        run: |
+          git add linkedin/data/
+          git diff --staged --quiet || git commit -m "data: estado $(date -u +%Y-%m-%d)"
+          git push || true
+
+      - name: Estado da fila (informativo)
+        # NAO falha de proposito. Alertas isolados viraram ruido de e-mail e
+        # pararam de ser lidos — quem cobra acao agora e o health-check.yml,
+        # UM relatorio semanal que so gera e-mail quando ha algo a fazer.
+        working-directory: linkedin
+        run: |
+          python - <<'EOF'
+          import json
+          from datetime import date
+          with open("data/posts.json", encoding="utf-8") as f:
+              posts = json.load(f)
+          hoje = date.today().isoformat()
+          futuros = [p for p in posts
+                     if p.get("status") in ("Agendado", "Aprovado")
+                     and (p.get("data_agendada") or "") > hoje]
+          publicados = [p.get("data_agendada") for p in posts
+                        if p.get("status") == "Publicado" and p.get("data_agendada")]
+          ultima_pub = max(publicados, default="(nenhuma)")
+          print(f"Posts futuros na fila: {len(futuros)} | Ultima publicacao: {ultima_pub}")
+          for p in sorted(futuros, key=lambda x: x.get("data_agendada", ""))[:6]:
+              print(f"  {p['data_agendada']}  {p.get('linha','?')}")
+          EOF

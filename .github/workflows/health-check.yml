@@ -1,0 +1,35 @@
+name: Diagnostico Semanal
+
+# Substitui os alertas isolados (fila vazia, ciclo falhou, token vencendo) por
+# UM relatorio semanal. O passo so falha — e portanto so gera e-mail — quando
+# ha algo que exige acao humana. Semana tranquila = nenhum e-mail.
+
+on:
+  schedule:
+    # - cron:  # PAUSADO 05/10/2026 — revisao da abordagem '0 11 * * 1'   # toda segunda as 8h BRT (11h UTC)
+  workflow_dispatch:        # rodar sob demanda
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependências
+        run: pip install -r linkedin/requirements.txt
+
+      - name: Diagnóstico do pipeline
+        env:
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+        working-directory: linkedin
+        # --strict: exit != 0 apenas quando ha item [ACAO].
+        # O relatorio completo (OK/AVISO/ACAO) fica no log da execucao.
+        run: python main.py diagnostico --strict

@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.python-version
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.streamlit/secrets.toml
+routines/comentar/chrome-profile/
+
+# Logs de execucao das rotinas locais (runtime, nao versionar)
+routines/logs/

@@ -1,0 +1,43 @@
+name: Renovar Token LinkedIn
+
+# LinkedIn access token dura 60 dias.
+# Este workflow FALHA intencionalmente 10 dias antes do vencimento.
+# GitHub envia email automatico quando workflow agendado falha.
+#
+# Acao ao receber o email:
+#   1. cd linkedin && python main.py auth-linkedin
+#   2. gh secret set LINKEDIN_ACCESS_TOKEN --body "<novo_token>"
+
+on:
+  # CRON DESATIVADO — este lembrete falhava de proposito todo mes so para
+  # gerar e-mail. Virou ruido. Quem cobra a renovacao agora e o health-check.yml
+  # semanal, que testa o token de verdade contra a API e so alerta quando ele
+  # realmente falha (nao por calendario estimado).
+  schedule:
+    # - cron:  # PAUSADO 05/10/2026 — revisao da abordagem '0 10 24 * *'   # dia 24, ~10 dias antes do vencimento tipico
+  workflow_dispatch:   # ainda roda sob demanda
+
+jobs:
+  lembrete:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Lembrete — token LinkedIn vence em ~10 dias
+        run: |
+          echo "=========================================="
+          echo "  ACAO NECESSARIA: Renovar token LinkedIn"
+          echo "=========================================="
+          echo ""
+          echo "O access token do LinkedIn vence em ~10 dias."
+          echo ""
+          echo "Para renovar:"
+          echo "  1. No seu PC:"
+          echo "     cd linkedin"
+          echo "     python main.py auth-linkedin"
+          echo ""
+          echo "  2. Cole o novo token no GitHub:"
+          echo "     gh secret set LINKEDIN_ACCESS_TOKEN --body \"<novo_token>\""
+          echo ""
+          echo "Proximo vencimento: ~dia 3 do mes seguinte"
+          echo ""
+          exit 1
